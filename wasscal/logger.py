@@ -145,15 +145,16 @@ class Logger:
 
         if not baseline:
             path = os.path.join(self.results_path, self.dataset, self.method, f"run_{self.id}")
+            if not os.path.exists(path):
+                os.makedirs(path)
             fname = f"{self.method}_{self.dataset}_{self.id}.csv"
         else:
             path = os.path.join(self.results_path, self.dataset, self.method, "baseline")
+            if not os.path.exists(path):
+                os.makedirs(path)
             baselines_so_far = [f for f in os.listdir(path) if ".csv" in f]
             fname = f"{self.method}_{self.dataset}_baseline{len(baselines_so_far)}.csv"
 
-
-        if not os.path.exists(path):
-            os.makedirs(path)
 
 
         file_path = os.path.join(path, fname)
