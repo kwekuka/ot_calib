@@ -83,7 +83,7 @@ class Logger:
 
 
         if best_ECE and model is not None:
-            path = os.path.join(self.results_path, self.dataset, f"run_{self.id}")
+            path = os.path.join(self.results_path, self.dataset, self.method, f"run_{self.id}")
             if not os.path.exists(path):
                 os.makedirs(path)
 

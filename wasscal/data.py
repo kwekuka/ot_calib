@@ -109,10 +109,13 @@ class Sampler:
 
 
 class ParallelSampler:
-    def __init__(self, samples, batch_size, randomness):
+    def __init__(self, samples, batch_size, randomness=None):
         self.samples = samples
         self.batch_size = batch_size
-        self.randomness = randomness
+
+        if randomness is None:
+            randomness = np.arange(samples.shape[0])
+        self.randomness = iter(randomness)
 
     def __iter__(self):
         return self
@@ -120,17 +123,10 @@ class ParallelSampler:
     def __next__(self):
         seed = next(self.randomness)
         rng = np.random.default_rng(seed=seed)
-        return rng.choice(a=self.samples, size=batch_size, replace=True)
+        index = rng.choice(a=np.arange(self.samples.shape[0]), size=self.batch_size, replace=True)
+        return self.samples[index]
 
 
-samples = np.arange(1000)
-batch_size = 10
-randomness = iter(np.arange(samples.shape[0]))
 
-p1 = ParallelSampler(samples=samples, batch_size=batch_size, randomness=copy.copy(randomness))
-p2 = ParallelSampler(samples=samples + 100, batch_size=batch_size, randomness=copy.copy(randomness))
-
-print(next(p1))
-print(next(p2))
 
 
