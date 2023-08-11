@@ -1,10 +1,8 @@
-
 import jax
 import jax.numpy as jnp
 from typing import Literal
-
+from ott.geometry import costs
 from ott.solvers.nn import neuraldual
-
 
 class L2Dual(neuraldual.W2NeuralDual):
     def __init__(self, **kwargs):
@@ -56,8 +54,9 @@ class L2Dual(neuraldual.W2NeuralDual):
             dual_source = f_source.mean()
             dual_target = f_star_target.mean()
 
-            l2 = 0.1*((f_grad_value(source) - target)**2).mean()
-            dual_loss = dual_source + dual_target + l2
+            f_grad = f_grad_value(source)
+            l2_loss = costs.PNormP(p=2).pairwise(f_grad, target)
+            dual_loss = dual_source + dual_target + l2_loss
 
             if self.amortization_loss == "regression":
                 amor_loss = ((init_source_hat - source_hat_detach) ** 2).mean()
@@ -73,9 +72,9 @@ class L2Dual(neuraldual.W2NeuralDual):
                 raise ValueError("Amortization loss has been misspecified.")
 
             if to_optimize == "both":
-                loss = dual_loss + amor_loss + l2
+                loss = dual_loss + amor_loss + l2_loss
             elif to_optimize == "f":
-                loss = dual_loss + l2
+                loss = dual_loss + l2_loss
             elif to_optimize == "g":
                 loss = amor_loss
             else:

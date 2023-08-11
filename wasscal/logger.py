@@ -21,6 +21,7 @@ class Logger:
 
         self.logs = {}
         self.best_conf_ece = np.inf
+        self.best_conf_cce = np.inf
         self.best_max_ece = np.inf
 
         path = os.path.join(self.results_path, self.dataset, self.method)
@@ -40,6 +41,8 @@ class Logger:
 
 
         best_ECE = False
+        best_CCE = False
+
 
         if model is not None:
             test_output = np.asarray(model.transport(test_probs))
@@ -63,6 +66,9 @@ class Logger:
             log[f"Test_TCE_{bins}"] = metrics.toplabel_ece(test_output, test_labels, num_bins=bins, norm="l1")
             log[f"Test_CCE_{bins}"] = metrics.classwise_ece(test_output, test_labels,
                                                             num_bins=bins, norm="l1")
+            # log["Test_Sinkhorn"] = float(metrics.sinkhorn_loss(test_probs, test_output))
+            log["Test_L2"] = metrics.l2_loss(test_probs, test_output)
+
 
 
             log[f"Train_ECE_{bins}"] = metrics.calibration_error(train_output, train_labels, num_bins=bins, norm="l1")
@@ -70,15 +76,22 @@ class Logger:
             log[f"Train_TCE_{bins}"] = metrics.toplabel_ece(train_output, train_labels, num_bins=bins, norm="l1")
             log[f"Train_CCE_{bins}"] = metrics.classwise_ece(train_output, train_labels,
                                                              num_bins=bins, norm="l1")
-
-
+            # log["Train_Sinkhorn"] = metrics.sinkhorn_loss(train_probs, train_output)
+            log["Train_L2"] = metrics.l2_loss(train_probs, train_output)
 
         ece15 = log["Test_ECE_15"]
+        cce15 = log["Test_CCE_15"]
+
 
         if ece15 < self.best_conf_ece:
             self.best_conf_ece = ece15
             best_ECE = True
             print(f"Best ECE so far: {ece15}")
+
+        if cce15 < self.best_conf_cce:
+            self.best_conf_cce = cce15
+            best_CCE = True
+            # print(f"Best CCE so far: {cce15}")
 
 
 
@@ -98,6 +111,8 @@ class Logger:
                                 options=tf.saved_model.SaveOptions(experimental_custom_gradients=True))
 
         log["Test_Best_ECE"] = best_ECE
+        log["Test_Best_CCE"] = best_ECE
+
 
         self.logs[iteration] = log
 

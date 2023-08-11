@@ -1,8 +1,6 @@
 import os
-import copy
 import pickle
 import numpy as np
-from wasscal import transport
 from scipy.special import logit
 from scipy.special import softmax
 
@@ -60,40 +58,6 @@ def load_tt_split(file_path, return_logits=False):
     return train_x, train_y.reshape(-1), test_x, test_y.reshape(-1)
 
 
-
-
-
-
-def supervised_calibrate(file_path, folder, **kwargs):
-    """
-
-    :param source_prob:
-    :param source_y:
-    :param folder:
-    :param kwargs:
-    :return:
-    """
-    probs, labels = load(file_path, return_logits=False)
-
-    wasscal = transport.WassersteinCalibration()
-    wasscal.fit(probs, labels)
-    calibrated = wasscal.calibrate(probs, labels)
-
-    if kwargs.get('save'):
-        assert 'file_name' in kwargs and type(kwargs['file_name']) is str
-
-        file_name = kwargs.get('file_name')
-
-        path = f"./data/{folder}"
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-        np.save(os.path.join(path, f"{file_name}_source"), probs)
-        np.save(os.path.join(path, f"{file_name}_labels"), labels)
-        np.save(os.path.join(path, f"{file_name}_calibrated"), calibrated)
-
-    return probs, calibrated, labels
-
 class Sampler:
   def __init__(self, samples, batch_size):
     self.samples = samples
@@ -127,6 +91,37 @@ class ParallelSampler:
         return self.samples[index]
 
 
+def supervised_calibrate(file_path, folder, **kwargs):
+    """
+
+    :param source_prob:
+    :param source_y:
+    :param folder:
+    :param kwargs:
+    :return:
+    """
+    probs, labels = load(file_path, return_logits=False)
+
+    wasscal = transport.WassersteinCalibration()
+    if "_c10_" in file_path:
+        eta = 4
+    else:
+        eta = 3
+    wasscal.fit(probs, labels,eta=eta)
+    calibrated = wasscal.calibrate(probs, labels, eta=eta)
 
 
+    if kwargs.get('save'):
+        assert 'file_name' in kwargs and type(kwargs['file_name']) is str
 
+        file_name = kwargs.get('file_name')
+
+        path = f"./data/{folder}"
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        np.save(os.path.join(path, f"{file_name}_source"), probs)
+        np.save(os.path.join(path, f"{file_name}_labels"), labels)
+        np.save(os.path.join(path, f"{file_name}_calibrated"), calibrated)
+
+    return probs, calibrated, labels

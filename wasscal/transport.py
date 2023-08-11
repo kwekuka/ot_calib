@@ -1,6 +1,5 @@
 import ot
 import numpy as np
-from scipy.special import softmax
 from wasscal.metrics import calibration_error
 
 def sinkhornTransport(source, target, bins):
@@ -45,7 +44,7 @@ def approximate_calibrated_density(classwise_density, grid, y, k, pos_case=True)
     return dist / dist.sum()
 
 
-def discretize_scores(scores, eta=2):
+def discretize_scores(scores, eta=3):
     """
     Discretize scores to the level of prevision described by the precision param
     :param scores:
@@ -54,7 +53,8 @@ def discretize_scores(scores, eta=2):
     """
     eta = int(10 ** eta) + 1
     grid = np.linspace(0, 1, eta)
-    discrete = grid[np.searchsorted(grid, scores)]
+    idx = (np.abs(grid.reshape(-1,1) - scores)).argmin(axis=0)
+    discrete = grid[idx]
 
     return discrete, grid
 
@@ -193,7 +193,8 @@ def apply_all_ot_plans(prob, y, eta, ot_plans):
                                                     ).reshape(-1, 1) for k in K]
 
     new_vector = np.hstack(transformed_scores)
-    return new_vector / new_vector.sum(axis=1).reshape(-1, 1)
+    return new_vector
+    # return new_vector / new_vector.sum(axis=1).reshape(-1, 1)
 
 
 class WassersteinCalibration:
@@ -211,15 +212,13 @@ class WassersteinCalibration:
         ece_before = calibration_error(prob, y)
         ece_after = calibration_error(transformed, y)
 
-        print('Training ECE - Before %.3f, After: %.3f' % (ece_before, ece_after))
+        print('Training ECE - Before %.5f, After: %.5f' % (ece_before, ece_after))
 
-
-    def calibrate(self, prob, y, eta=3):
+    def calibrate(self, prob, y, eta=4):
         assert self.ot_plans is not None
-
-
         transformed = apply_all_ot_plans(prob, y, eta, self.ot_plans)
-
+        # ece_calibrated = calibration_error(transformed, y)
+        # print("Calibrated ECE - %.5f" % (ece_calibrated))
         return transformed
 
 

@@ -1,6 +1,10 @@
+import jax
 import torch
 import numpy as np
+import jax.numpy as jnp
 from sklearn.metrics import log_loss
+from ott.tools import sinkhorn_divergence
+from ott.geometry import pointcloud, costs
 from sklearn.metrics import mean_squared_error
 from torchmetrics.functional.classification import binary_calibration_error
 from torchmetrics.functional.classification import multiclass_calibration_error
@@ -105,12 +109,7 @@ def classwise_ece(probs, target, num_bins, norm, weighted=False):
                          num_bins=num_bins,
                          norm=norm) for k in labels])
 
-    if weighted:
-        frac = 1/target.shape[0]
-        weight = np.bincount(target, weights=np.repeat(frac,target.shape[0]), minlength=probs.shape[1])
-    else:
-        weight = 1/probs.shape[1]
-    return np.dot(weight, ovr_ece).sum()
+    return ovr_ece.mean()
 
 def _one_vs_rest_ece(probs,target,num_bins, norm, k):
     k_probs, k_target = one_vs_rest(probs, target, k)
@@ -142,3 +141,16 @@ def nll(pred, target):
     return log_loss(target, y_pred=pred)
 
 
+@jax.jit
+def sinkhorn_loss(x, y, epsilon=0.001):
+    """Computes transport between (x, a) and (y, b) via Sinkhorn algorithm."""
+    a = jnp.ones(len(x)) / len(x)
+    b = jnp.ones(len(y)) / len(y)
+
+    sdiv = sinkhorn_divergence.sinkhorn_divergence(
+        pointcloud.PointCloud, x, y, epsilon=epsilon, a=a, b=b
+    )
+    return sdiv.divergence
+
+def l2_loss(x,y):
+    return costs.PNormP(p=2).pairwise(x, y)
