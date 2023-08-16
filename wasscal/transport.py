@@ -2,6 +2,15 @@ import ot
 import numpy as np
 from wasscal.metrics import calibration_error
 
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+
+from ott.geometry import costs, grid, pointcloud
+from ott.problems.linear import linear_problem
+from ott.solvers.linear import sinkhorn
+
 def sinkhornTransport(source, target, bins):
     """
     :param source:
@@ -69,6 +78,8 @@ def apply_transport_plan(scores, grid, plan):
     empty = np.empty(shape=scores.shape)
     for i, ri in enumerate(conditional_plan):
         indexes = np.where(scores == grid[i])[0]
+
+
         expect_count = np.round(ri * indexes.size)
 
         #Little heuristic to get the rounded histograms as close to one another as possible
@@ -95,7 +106,7 @@ def compute_kantorovich_plan(a, b):
     assert a.size == b.size, "oops"
 
     # bin positions
-    x = np.arange(a.size, dtype=np.float64)
+    x = np.arange(a.size, dtype=np.float64)/a.size
 
     # loss matrix
     M = ot.dist(x.reshape(-1, 1), x.reshape(-1, 1))
@@ -103,8 +114,10 @@ def compute_kantorovich_plan(a, b):
 
     return ot.emd(a, b, M)
 
-def transport_plan_k_calibrated(pred, y, k, eta=2):
-    discrete_scores, grid = discretize_scores(pred[:, k], eta=eta)
+def transport_plan_k_calibrated(prob, y, k, eta=2):
+    discrete_scores, grid = discretize_scores(prob[:, k], eta=eta)
+
+
     belief_density = estimate_classwise_density(discrete_scores, grid)
 
     pos_calibrated_hist = approximate_calibrated_density(classwise_density=belief_density,
@@ -113,11 +126,16 @@ def transport_plan_k_calibrated(pred, y, k, eta=2):
                                                          k=k,
                                                          pos_case=True)
 
+
+
     neg_calibrated_hist = approximate_calibrated_density(classwise_density=belief_density,
                                                          grid=np.flip(grid),
                                                          y=y,
                                                          k=k,
                                                          pos_case=False)
+
+
+
     pos_scores = discrete_scores[y == k]
     neg_scores = discrete_scores[y != k]
 
@@ -128,39 +146,6 @@ def transport_plan_k_calibrated(pred, y, k, eta=2):
     ot_neg_plan = compute_kantorovich_plan(neg_uncalibrated_density, neg_calibrated_hist)
 
     return ot_neg_plan, ot_pos_plan
-def wasserstein_calibrated_classwise(pred, y, k, eta=2):
-    discrete_scores, grid = discretize_scores(pred[:, k], eta=eta)
-    belief_density = estimate_classwise_density(discrete_scores, grid)
-
-    pos_calibrated_hist = approximate_calibrated_density(classwise_density=belief_density,
-                                                     grid=grid,
-                                                     y=y,
-                                                     k=k,
-                                                     pos_case=True)
-
-    neg_calibrated_hist = approximate_calibrated_density(classwise_density=belief_density,
-                                                     grid=np.flip(grid),
-                                                     y=y,
-                                                     k=k,
-                                                     pos_case=False)
-    pos_scores = discrete_scores[y == k]
-    neg_scores = discrete_scores[y != k]
-
-    pos_uncalibrated_density = estimate_classwise_density(pos_scores, grid)
-    neg_uncalibrated_density = estimate_classwise_density(neg_scores, grid)
-
-    ot_pos_plan = compute_kantorovich_plan(pos_uncalibrated_density, pos_calibrated_hist)
-    ot_neg_plan = compute_kantorovich_plan(neg_uncalibrated_density, neg_calibrated_hist)
-
-    pos_transformed_scores = apply_transport_plan(pos_scores, grid, ot_pos_plan)
-    neg_transformed_scores = apply_transport_plan(neg_scores, grid, ot_neg_plan)
-
-    transformed_scores = discrete_scores.copy()
-
-    transformed_scores[y == k] = pos_transformed_scores
-    transformed_scores[y != k] = neg_transformed_scores
-
-    return transformed_scores
 
 
 def apply_kwise_transport_plan(prob, y, k, eta, ot_plan):
@@ -218,7 +203,7 @@ class WassersteinCalibration:
         assert self.ot_plans is not None
         transformed = apply_all_ot_plans(prob, y, eta, self.ot_plans)
         # ece_calibrated = calibration_error(transformed, y)
-        # print("Calibrated ECE - %.5f" % (ece_calibrated))
+        # print("Testing ECE - %.5f \n" % (ece_calibrated))
         return transformed
 
 
